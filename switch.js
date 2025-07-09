@@ -21,7 +21,6 @@ function getCurrentBranch() {
 }
 
 function hasLocalBranch(branch) {
-  // git branch --list 로만 확인하면 확실합니다
   const out = execSync(`git branch --list "${branch}"`).toString().trim();
   return out !== "";
 }
@@ -38,17 +37,17 @@ try {
   if (!modeArg) usage();
 
   if (modeArg === "-c") {
-    // create 모드
     if (!target) usage();
 
     const base = getCurrentBranch();
     console.log(`${EMOJI.info}  ${TAG} Current branch is "${base}".`);
     console.log(`${EMOJI.create} ${TAG} Creating and switching to new branch "${target}" from "${base}"...`);
-    execSync(`git switch -c "${target}"`, { stdio: "inherit" });
-    console.log(`${EMOJI.success} ${TAG} New branch "${target}" created and checked out.`);
 
+    // 명시적으로 base 브랜치 설정
+    execSync(`git switch -c "${target}" "${base}"`, { stdio: "inherit" });
+
+    console.log(`${EMOJI.success} ${TAG} New branch "${target}" created from "${base}" and checked out.`);
   } else {
-    // switch 모드
     const branch = modeArg;
 
     if (!hasLocalBranch(branch)) {
