@@ -8,6 +8,16 @@
 
 ## 🚀 Git alias 등록
 
+```
+# 경로는 본인 환경에 맞게 적용해주세요.
+
+[alias]
+	b = "!sh -c 'node ~/git-scripts/branch.js \"$@\"' dummy"
+	s = "!sh -c 'node ~/git-scripts/switch.js \"$@\"' dummy"
+	r = "!sh -c 'node ~/git-scripts/rebase.js \"$@\"' dummy"
+	p = "!sh -c 'node ~/git-scripts/push.js \"$@\"' dummy"
+```
+
 ```bash
 git config --global alias.b "!sh -c 'node ~/git-scripts/branch.js \"$@\"' dummy"
 git config --global alias.s "!sh -c 'node ~/git-scripts/switch.js \"$@\"' dummy"
