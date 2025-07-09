@@ -21,8 +21,8 @@ function run(cmd, dir) {
   return new Promise(resolve => {
     exec(cmd, { cwd: dir }, (err, stdout, stderr) => {
       const name = path.basename(dir);
-      if (stdout)  console.log(`ℹ️ [REBASE][${name}] ${stdout.trim()}`);
-      if (stderr)  console.error(`⚠️ [REBASE][${name}] ${stderr.trim()}`);
+      if (stdout)  console.log(`ℹ️  [REBASE][${name}] ${stdout.trim()}`);
+      if (stderr)  console.error(`⚠️  [REBASE][${name}] ${stderr.trim()}`);
       if (err)     process.exitCode = 1;
       resolve();
     });
@@ -34,20 +34,20 @@ async function fetchRebase(dir, branch) {
   console.log(`🔄 [REBASE] Fetch & rebase in "${path.basename(dir)}" on branch "${branch}"`);
   await run(`git fetch origin "${branch}"`, dir);
   await run(`git rebase origin/"${branch}"`, dir);
-  console.log(`✅  [REBASE] Completed in "${path.basename(dir)}"`);
+  console.log(`✅ [REBASE] Completed in "${path.basename(dir)}"`);
 }
 
-// mode: this
+// mode: this (rebase current repo)
 async function doThis() {
   const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd })
     .toString().trim();
-  console.log(`ℹ️ [REBASE] Mode: this (current directory)`);
+  console.log(`ℹ️  [REBASE] Mode: this (current directory)`);
   await fetchRebase(cwd, branch);
 }
 
-// mode: all
+// mode: all (current + sub git repos)
 async function doAll() {
-  console.log(`ℹ️ [REBASE] Mode: all (current + subdirectories)`);
+  console.log(`ℹ️  [REBASE] Mode: all (current + subdirectories)`);
   await doThis();
   for (const d of getDirs(cwd)) {
     if (isGitRepo(d)) {
@@ -58,22 +58,36 @@ async function doAll() {
   }
 }
 
-// mode: parent
+// mode: parent (rebase with detected base branch)
 async function doParent() {
   const curr = execSync('git rev-parse --abbrev-ref HEAD', { cwd })
     .toString().trim();
-  console.log(`ℹ️ [REBASE] Mode: parent (upstream of "${curr}")`);
-  let upstream;
-  try {
-    upstream = execSync(
-      `git rev-parse --abbrev-ref --symbolic-full-name "${curr}@{u}"`,
-      { cwd }
-    ).toString().trim();
-  } catch {
-    console.error(`❌ [REBASE] Parent mode failed: no upstream configured for "${curr}"`);
+
+  console.log(`ℹ️  [REBASE] Mode: parent (base branch of "${curr}")`);
+
+  const candidates = ['main', 'develop', 'master'];
+  let base = null;
+
+  for (const candidate of candidates) {
+    try {
+      // base 브랜치가 로컬 origin에 존재하는지 확인
+      execSync(`git rev-parse --verify origin/${candidate}`, { cwd, stdio: 'ignore' });
+      // 해당 브랜치와 merge-base가 존재하는지 확인
+      execSync(`git merge-base origin/${candidate} ${curr}`, { cwd, stdio: 'ignore' });
+      base = candidate;
+      break;
+    } catch {
+      continue;
+    }
+  }
+
+  if (!base) {
+    console.error(`❌ [REBASE] Base branch를 추정할 수 없습니다. origin/main 또는 origin/develop이 존재하는지 확인해주세요.`);
     process.exit(1);
   }
-  await fetchRebase(cwd, upstream);
+
+  console.log(`ℹ️  [REBASE] Detected base branch: "${base}"`);
+  await fetchRebase(cwd, base);
 }
 
 // main
