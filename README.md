@@ -16,6 +16,7 @@
 	s = "!sh -c 'node ~/git-scripts/switch.js \"$@\"' dummy"
 	r = "!sh -c 'node ~/git-scripts/rebase.js \"$@\"' dummy"
 	p = "!sh -c 'node ~/git-scripts/push.js \"$@\"' dummy"
+	clear = "!sh -c 'node ~/git-scripts/clear.js'"
 ```
 
 ```bash
