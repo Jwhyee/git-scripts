@@ -18,12 +18,12 @@ const isGitRepository = (directory) => {
 const execCommand = (command, cwd) => {
   return new Promise((resolve) => {
     exec(command, { cwd }, (error, stdout, stderr) => {
-      if (stdout) {
-        console.log(`📘 [${path.basename(cwd)}] ${stdout.trim()}`);
-      }
-      if (stderr) {
-        console.error(`⚠️ [${path.basename(cwd)}] ${stderr.trim()}`);
-      }
+      // if (stdout) {
+      //   console.log(`📘 [${path.basename(cwd)}] ${stdout.trim()}`);
+      // }
+      // if (stderr) {
+      //   console.error(`⚠️ [${path.basename(cwd)}] ${stderr.trim()}`);
+      // }
       resolve();
     });
   });
@@ -39,20 +39,17 @@ const getCurrentBranch = async (directory) => {
 
 const hardResetAndClean = async (directory) => {
   const dirName = path.basename(directory);
-  console.log(`\n🧼 Resetting & Cleaning: ${dirName}`);
-
   const branch = await getCurrentBranch(directory);
-  console.log(`🔀 Current branch: ${branch}`);
 
   await execCommand(`git fetch origin ${branch}`, directory);
   await execCommand(`git reset --hard origin/${branch}`, directory);
   await execCommand(`git clean -fd`, directory);
 
-  console.log(`✅ ${dirName} is now clean.\n`);
+  console.log(`✅  [${dirName}] ${branch} branch is now clean.`);
 };
 
 (async () => {
-  console.log(`\n🛠 Starting cleanup in: ${currentDirectory}\n`);
+  console.log(`\n🗑️ Target Project: ${currentDirectory}\n`);
 
   if (isGitRepository(currentDirectory)) {
     await hardResetAndClean(currentDirectory);
@@ -66,5 +63,5 @@ const hardResetAndClean = async (directory) => {
     }
   }
 
-  console.log('🏁 All repositories are up to date and clean!\n');
+  console.log('\n🏁 All repositories are up to date and clean!\n');
 })();
