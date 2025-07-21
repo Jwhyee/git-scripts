@@ -24,7 +24,7 @@ function run(cmd, dir) {
       // if (stdout)  console.log(`ℹ️  [REBASE][${name}] ${stdout.trim()}`);
       // if (stderr)  console.error(`⚠️ [REBASE][${name}] ${stderr.trim()}`);
       if (err) process.exitCode = 1;
-      resolve();
+      resolve({ stdout, stderr });
     });
   });
 }
@@ -33,8 +33,13 @@ function run(cmd, dir) {
 async function fetchRebase(dir, branch) {
   console.log(`🔄 [${path.basename(dir)}] "${branch}" branch`);
   await run(`git fetch origin "${branch}"`, dir);
-  await run(`git rebase origin/"${branch}"`, dir);
-  console.log(`✅  [REBASE] Completed in "${path.basename(dir)}"\n`);
+  const { stdout, stderr } = await run(`git rebase origin/"${branch}"`, dir);
+  const output = (stdout || '') + (stderr || '');
+  if (/is up to date\./i.test(output)) {
+    console.log(`🔄 [REBASE] Nothing to change in ("${path.basename(dir)}")\n`);
+  } else {
+    console.log(`✅  [REBASE] Completed in "${path.basename(dir)}"\n`);
+  }
 }
 
 // mode: this (rebase current repo)
