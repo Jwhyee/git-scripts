@@ -31,12 +31,12 @@ function run(cmd, dir) {
 
 // fetch & rebase helper
 async function fetchRebase(dir, branch) {
-  console.log(`🔄 [${path.basename(dir)}] "${branch}" branch`);
+  console.log(`🔄 [FETCH] Fetching "${path.basename(dir)}" module's "${branch}" branch`);
   await run(`git fetch origin "${branch}"`, dir);
   const { stdout, stderr } = await run(`git rebase origin/"${branch}"`, dir);
   const output = (stdout || '') + (stderr || '');
   if (/is up to date\./i.test(output)) {
-    console.log(`🔄 [REBASE] Nothing to change in ("${path.basename(dir)}")\n`);
+    console.log(`⏺️ [REBASE] Nothing to change in ("${path.basename(dir)}")\n`);
   } else {
     console.log(`✅  [REBASE] Completed in "${path.basename(dir)}"\n`);
   }
