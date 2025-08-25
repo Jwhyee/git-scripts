@@ -6,24 +6,32 @@
 
 ---
 
+## 🔄 Git clone
+
+터미널 환경에서 다음 명령어를 각각 실행하여, 프로젝트를 clone 합니다.
+
+```bash
+cd ~
+git clone https://github.com/Jwhyee/git-scripts.git
+```
+
 ## 🚀 Git alias 등록
 
-```
-# `~/git-scripts` 경로는 본인 환경에 맞게 적용해주세요.
+VSCode가 깔려있을 경우, 다음 명령어를 통해 `.gitconfig`를 열어주세요.
 
+```bash
+code ~/.gitconfig
+```
+
+alias 부분이 없는 경우, 아래 코드를 그대로 복사하여, 하단에 붙여넣어 주세요.
+
+```
 [alias]
 	b = "!sh -c 'node ~/git-scripts/branch.js \"$@\"' dummy"
 	s = "!sh -c 'node ~/git-scripts/switch.js \"$@\"' dummy"
 	r = "!sh -c 'node ~/git-scripts/rebase.js \"$@\"' dummy"
 	p = "!sh -c 'node ~/git-scripts/push.js \"$@\"' dummy"
 	clear = "!sh -c 'node ~/git-scripts/clear.js'"
-```
-
-```bash
-git config --global alias.b "!sh -c 'node ~/git-scripts/branch.js \"$@\"' dummy"
-git config --global alias.s "!sh -c 'node ~/git-scripts/switch.js \"$@\"' dummy"
-git config --global alias.r "!sh -c 'node ~/git-scripts/rebase.js \"$@\"' dummy"
-git config --global alias.p "!sh -c 'node ~/git-scripts/push.js \"$@\"' dummy"
 ```
 
 ---
