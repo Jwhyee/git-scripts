@@ -16,14 +16,6 @@ git clone https://github.com/Jwhyee/git-scripts.git
 
 ## ⚙️ Git Alias 등록
 
-### VSCode가 설치된 경우 `.gitconfig` 열기
-
-```bash
-code ~/.gitconfig
-```
-
-### `[alias]` 섹션이 없다면, 아래 코드를 붙여넣기
-
 ```ini
 [alias]
   b = "!sh -c 'node ~/git-scripts/branch.js \"$@\"' dummy"
@@ -37,89 +29,99 @@ code ~/.gitconfig
 
 ## 📚 스크립트 사용법
 
-### 1️⃣ 브랜치 관리 - `git b`
+---
 
-#### 🔥 키워드 포함 브랜치 삭제
+### 1️⃣ `git b`: 브랜치 관리
 
-```bash
-git b -d <keyword>
-```
+사용 가능한 명령어:
 
-예) `git b -d feat` → `feat`가 포함된 모든 로컬 브랜치 삭제  
-※ 삭제된 브랜치는 `branches.json`에서도 자동 제거됩니다.
+- `git b --list` : 로컬 브랜치 목록 조회
+- `git b -d <keyword>` : 키워드 포함 브랜치 일괄 삭제
 
-#### 📋 로컬 브랜치 목록 조회
+#### 🔹 `git b --list`
 
-```bash
-git b --list
-```
+기존의 `git branch --list` 명령을 간소화한 버전으로,  
+현재 존재하는 모든 로컬 브랜치를 한눈에 보여줍니다.
+
+#### 🔹 `git b -d <keyword>`
+
+특정 키워드를 포함한 브랜치들을 찾아 자동으로 삭제합니다.  
+예를 들어 `git b -d feat`는 `feat`가 포함된 브랜치들을 찾아서 제거하며,  
+삭제된 브랜치는 `branches.json`에서도 자동으로 정리됩니다.
 
 ---
 
-### 2️⃣ 브랜치 전환 및 생성 - `git s`
+### 2️⃣ `git s`: 브랜치 전환 및 생성
 
-#### 🔁 기존 브랜치로 전환
+사용 가능한 명령어:
 
-```bash
-git s <branch>
-```
+- `git s <branch>` : 기존 로컬 브랜치로 전환
+- `git s -c <new-branch>` : 새 브랜치 생성 후 전환 (parent 기록됨)
 
-#### 🌱 새로운 브랜치 생성 (parent 자동 기록됨)
+#### 🔹 `git s <branch>`
 
-```bash
-git s -c <new-branch>
-```
+기존의 `git switch <branch>` 명령을 그대로 감싼 단축 명령입니다.  
+로컬에 존재하는 브랜치로 빠르게 이동할 수 있습니다.
 
-- 현재 브랜치를 기준으로 새로운 브랜치를 만들고 체크아웃합니다.
-- 이때 `branches.json`에 브랜치 간 관계가 자동 저장됩니다.
-- 이후 `git r parent`에서 기준 브랜치로 리베이스할 때 사용됩니다.
+#### 🔹 `git s -c <new-branch>`
 
----
-
-### 3️⃣ 리베이스 자동화 - `git r`
-
-#### 🔁 현재 디렉토리 리베이스
-
-```bash
-git r this
-```
-
-#### 🧩 하위 Git 저장소까지 전체 리베이스
-
-```bash
-git r all
-```
-
-#### 👪 부모 브랜치 기준 리베이스
-
-```bash
-git r parent
-```
-
-- 현재 브랜치에 대한 부모 브랜치 정보는 `branches.json`에 기반합니다.
-- `upstream`이 아닌 **논리적 부모 브랜치**로부터 `fetch + rebase`가 진행됩니다.
+`git switch -c <new-branch> <current>` 명령을 대체합니다.  
+현재 브랜치를 기준으로 새 브랜치를 생성하고 바로 전환합니다.  
+추가로, 두 브랜치의 관계를 `branches.json`에 기록하여  
+`git r parent` 시 자동 리베이스 기준으로 사용할 수 있도록 합니다.
 
 ---
 
-### 4️⃣ 푸시 간소화 - `git p`
+### 3️⃣ `git r`: 리베이스 자동화
 
-#### 🚀 현재 브랜치 푸시
+사용 가능한 명령어:
 
-```bash
-git p this
-```
+- `git r this` : 현재 브랜치를 기준으로 rebase
+- `git r all` : 현재 디렉토리 + 하위 Git 저장소 모두 rebase
+- `git r parent` : `branches.json` 기준 부모 브랜치로 rebase
 
-#### 💥 강제 푸시
+#### 🔹 `git r this`
 
-```bash
-git p this -f
-```
+기존의 `git fetch` + `git rebase`를 자동화합니다.  
+현재 체크아웃된 브랜치 기준으로 최신 상태를 가져와 병합합니다.
+
+#### 🔹 `git r all`
+
+하위 디렉토리에 `.git` 폴더가 존재하는 저장소까지 순회하며  
+각각에 대해 `git fetch && git rebase`를 수행합니다.  
+모노레포 환경 또는 Git 서브디렉토리 구조에 유용합니다.
+
+#### 🔹 `git r parent`
+
+`upstream`이 아닌, `git s -c`을 통해 기록된 `branches.json`을 기준으로  
+논리적인 부모 브랜치로부터 fetch & rebase를 수행합니다.  
+브랜치 생성 당시의 base 브랜치를 그대로 따라가므로,  
+복잡한 브랜치 전략을 사용해도 정확하게 동작합니다.
+
+---
+
+### 4️⃣ `git p`: 푸시 간소화
+
+사용 가능한 명령어:
+
+- `git p this` : 현재 브랜치 푸시
+- `git p this -f` : 강제 푸시
+
+#### 🔹 `git p this`
+
+기존의 `git push origin HEAD`를 단순화한 명령입니다.  
+현재 브랜치를 원격 저장소에 푸시합니다.
+
+#### 🔹 `git p this -f`
+
+`git push origin HEAD --force`와 동일하게 동작하며,  
+강제로 커밋을 밀어야 하는 상황에서 유용합니다.
 
 ---
 
 ## 💡 유의사항 및 팁
 
-- 명령어 실행 전, **현재 디렉토리가 Git 루트인지 확인**하세요.
-- 브랜치를 삭제하기 전에 `git b --list`로 목록을 확인하는 습관을 들이세요.
-- Windows에서는 `sh` 대신 PowerShell 또는 Git Bash에서 실행하세요.
-- `branches.json`은 브랜치 생성/삭제에 따라 자동으로 관리됩니다.
+- 명령어 실행 전, **현재 디렉토리가 Git 루트인지** 확인하세요.
+- 브랜치를 삭제하기 전에는 `git b --list`로 목록을 확인하는 습관을 들이세요.
+- `branches.json`은 브랜치 생성(`git s -c`) 및 삭제(`git b -d`) 시 자동으로 관리됩니다.
+- Windows 환경에서는 Git Bash 또는 PowerShell 사용을 권장합니다.
