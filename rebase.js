@@ -3,6 +3,7 @@ const path = require('path');
 const { exec, execSync } = require('child_process');
 
 const cwd = process.cwd();
+const BRANCH_RECORD_FILE = path.join(__dirname, 'branches.json');
 
 // get subdirectories
 function getDirs(dir) {
@@ -21,8 +22,6 @@ function run(cmd, dir) {
   return new Promise(resolve => {
     exec(cmd, { cwd: dir }, (err, stdout, stderr) => {
       const name = path.basename(dir);
-      // if (stdout)  console.log(`ℹ️  [REBASE][${name}] ${stdout.trim()}`);
-      // if (stderr)  console.error(`⚠️ [REBASE][${name}] ${stderr.trim()}`);
       if (err) process.exitCode = 1;
       resolve({ stdout, stderr });
     });
@@ -32,8 +31,9 @@ function run(cmd, dir) {
 // fetch & rebase helper
 async function fetchRebase(dir, branch) {
   console.log(`🔄 [FETCH] Fetching "${path.basename(dir)}" module's "${branch}" branch`);
-  await run(`git fetch origin "${branch}"`, dir);
-  const { stdout, stderr } = await run(`git rebase origin/"${branch}"`, dir);
+  await run(`git fetch origin ${branch}`, dir);
+
+  const { stdout, stderr } = await run(`git rebase origin/${branch}`, dir);
   const output = (stdout || '') + (stderr || '');
   if (/is up to date\./i.test(output)) {
     console.log(`⏺️ [REBASE] Nothing to change in ("${path.basename(dir)}")\n`);
@@ -51,7 +51,6 @@ async function doThis() {
 
 // mode: all (current + sub git repos)
 async function doAll() {
-  // console.log(`ℹ️  [REBASE] Mode: all (current + subdirectories)`);
   await doThis();
   for (const d of getDirs(cwd)) {
     if (isGitRepo(d)) {
@@ -62,39 +61,37 @@ async function doAll() {
   }
 }
 
-// mode: parent (rebase with detected base branch)
+// get parent branch from JSON
+function getParentFromJson(branchName) {
+  try {
+    const data = JSON.parse(fs.readFileSync(BRANCH_RECORD_FILE, 'utf-8'));
+    return data[branchName] || null;
+  } catch {
+    return null;
+  }
+}
+
+// mode: parent (rebase with branch.json base)
 async function doParent() {
   const curr = execSync('git rev-parse --abbrev-ref HEAD', { cwd })
     .toString().trim();
 
-  console.log(`ℹ️  [REBASE] Mode: parent (base branch of "${curr}")`);
+  console.log(`ℹ️  [REBASE] Mode: parent (json-config for "${curr}")`);
 
-  const candidates = ['main', 'develop', 'master'];
-  let base = null;
-
-  for (const candidate of candidates) {
-    try {
-      // base 브랜치가 로컬 origin에 존재하는지 확인
-      execSync(`git rev-parse --verify origin/${candidate}`, { cwd, stdio: 'ignore' });
-      // 해당 브랜치와 merge-base가 존재하는지 확인
-      execSync(`git merge-base origin/${candidate} ${curr}`, { cwd, stdio: 'ignore' });
-      base = candidate;
-      break;
-    } catch {
-      continue;
-    }
-  }
+  const base = getParentFromJson(curr);
 
   if (!base) {
-    console.error(`❌ [REBASE] Base branch를 추정할 수 없습니다. origin/main 또는 origin/develop이 존재하는지 확인해주세요.`);
+    console.error(`❌ [REBASE] '${curr}' 브랜치의 부모 브랜치를 branches.json에서 찾을 수 없습니다.`);
+    console.error(`   branches.json에 다음과 같이 등록해 주세요:`);
+    console.error(`   { "${curr}": "<base-branch>" }`);
     process.exit(1);
   }
 
-  console.log(`ℹ️  [REBASE] Detected base branch: "${base}"`);
+  console.log(`ℹ️  [REBASE] Detected parent branch from config: "${base}"`);
   await fetchRebase(cwd, base);
 }
 
-// main
+// main entry
 (async () => {
   const mode = process.argv[2] || 'this';
   switch (mode) {
