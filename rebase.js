@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { exec, execSync } = require('child_process');
+const LOG = require('./log-tag');
 
 const cwd = process.cwd();
 const BRANCH_RECORD_FILE = path.join(__dirname, 'branches.json');
@@ -22,7 +23,11 @@ function run(cmd, dir) {
   return new Promise(resolve => {
     exec(cmd, { cwd: dir }, (err, stdout, stderr) => {
       const name = path.basename(dir);
-      if (err) process.exitCode = 1;
+      if (err) {
+        console.warn(`${LOG.warn}${name}: Command failed → ${cmd}`);
+        if (stderr) console.warn(`${LOG.warn}${stderr.trim()}`);
+        process.exitCode = 1;
+      }
       resolve({ stdout, stderr });
     });
   });
@@ -30,15 +35,16 @@ function run(cmd, dir) {
 
 // fetch & rebase helper
 async function fetchRebase(dir, branch) {
-  console.log(`🔄 [FETCH] Fetching "${path.basename(dir)}" module's "${branch}" branch`);
+  const name = path.basename(dir);
+  console.log(`${LOG.info}Fetching "${name}" (${branch})`);
   await run(`git fetch origin ${branch}`, dir);
 
   const { stdout, stderr } = await run(`git rebase origin/${branch}`, dir);
   const output = (stdout || '') + (stderr || '');
   if (/is up to date\./i.test(output)) {
-    console.log(`⏺️ [REBASE] Nothing to change in ("${path.basename(dir)}")\n`);
+    console.log(`${LOG.info}No changes to rebase in "${name}" (${branch})\n`);
   } else {
-    console.log(`✅  [REBASE] Completed in "${path.basename(dir)}"\n`);
+    console.log(`${LOG.ok}Rebase completed in "${name}" (${branch})\n`);
   }
 }
 
@@ -76,18 +82,17 @@ async function doParent() {
   const curr = execSync('git rev-parse --abbrev-ref HEAD', { cwd })
     .toString().trim();
 
-  console.log(`ℹ️  [REBASE] Mode: parent (json-config for "${curr}")`);
-
+  console.log(`${LOG.info}Rebase mode: parent`);
   const base = getParentFromJson(curr);
 
   if (!base) {
-    console.error(`❌ [REBASE] '${curr}' 브랜치의 부모 브랜치를 branches.json에서 찾을 수 없습니다.`);
-    console.error(`   branches.json에 다음과 같이 등록해 주세요:`);
-    console.error(`   { "${curr}": "<base-branch>" }`);
+    console.error(`${LOG.error}Parent branch not found for "${curr}" in branches.json.`);
+    console.error(`${LOG.hint}Please add the following to branches.json:`);
+    console.error(`${LOG.hint}{ "${curr}": "<base-branch>" }`);
     process.exit(1);
   }
 
-  console.log(`ℹ️  [REBASE] Detected parent branch from config: "${base}"`);
+  console.log(`${LOG.info}Using parent branch from config: "${base}"`);
   await fetchRebase(cwd, base);
 }
 
@@ -105,8 +110,8 @@ async function doParent() {
       await doParent();
       break;
     default:
-      console.error(`❌ [REBASE] Invalid option: "${mode}"`);
-      console.error('ㄴ Available modes: this, all, parent');
+      console.error(`${LOG.error}Invalid rebase mode: "${mode}"`);
+      console.error(`${LOG.hint}Available modes: this, all, parent`);
       process.exit(1);
   }
   if (process.exitCode) process.exit(process.exitCode);

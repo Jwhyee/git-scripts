@@ -1,94 +1,112 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const LOG = require('./log-tag'); // [INFO], [OK], [ERROR], ...
 
-// branches.json 경로 (스크립트 기준)
 const BRANCH_RECORD_FILE = path.join(__dirname, 'branches.json');
 
-// usage helper
 function usage() {
-  console.error('Usage:');
-  console.error('  git b --list                Show all local branches');
-  console.error('  git b -d <keyword>          Delete all local branches matching keyword');
+  console.error(`${LOG.error} Usage:`);
+  console.error(`${LOG.error}   git b --list                Show all local branches`);
+  console.error(`${LOG.error}   git b -d <keyword>          Delete all local branches matching keyword`);
   process.exit(1);
 }
 
-// parse args
+function getCurrentBranch() {
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD')
+      .toString()
+      .trim();
+  } catch {
+    return null;
+  }
+}
+
+function loadBranchMap() {
+  if (!fs.existsSync(BRANCH_RECORD_FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(BRANCH_RECORD_FILE, 'utf-8'));
+  } catch {
+    console.warn(`${LOG.warn} Failed to parse branches.json`);
+    return {};
+  }
+}
+
+function saveBranchMap(map) {
+  try {
+    fs.writeFileSync(BRANCH_RECORD_FILE, JSON.stringify(map, null, 2));
+  } catch {
+    console.warn(`${LOG.warn} Failed to update branches.json`);
+  }
+}
+
+// ---------- Main ----------
+
 const args = process.argv.slice(2);
 const mode = args[0];
 const keyword = args[1];
 
 if (!mode) usage();
 
-// mode: --list
+// --list: 리스트 출력
 if (mode === '--list') {
   try {
     execSync('git branch --list', { stdio: 'inherit' });
   } catch (err) {
-    console.error('Failed to list branches:', err.message);
+    console.error(`${LOG.error} Failed to list branches: ${err.message}`);
     process.exit(1);
   }
   process.exit(0);
 }
 
-// mode: -d <keyword>
+// -d <keyword>: 브랜치 삭제
 if (mode === '-d') {
   if (!keyword) usage();
 
-  console.log(`🔍 Deleting all branches matching "${keyword}"…`);
+  console.log(`${LOG.info} Deleting all branches matching "${keyword}"...`);
 
-  // get matching branches
-  let branches;
+  let branches = [];
   try {
     branches = execSync(`git branch --list | grep ${keyword}`)
       .toString()
       .split('\n')
       .map(b => b.replace(/^\*?\s*/, ''))
-      .filter(b => b);
+      .filter(b => b.length > 0);
   } catch {
-    branches = [];
-  }
-
-  if (branches.length === 0) {
-    console.log('✅  No matching branches found.');
+    console.log(`${LOG.ok} No matching branches found.`);
     process.exit(0);
   }
 
-  // load parent branch records
-  let branchMap = {};
-  if (fs.existsSync(BRANCH_RECORD_FILE)) {
-    try {
-      branchMap = JSON.parse(fs.readFileSync(BRANCH_RECORD_FILE, 'utf-8'));
-    } catch {
-      console.warn('⚠️  Failed to parse branches.json. Proceeding without modification.');
-    }
+  if (branches.length === 0) {
+    console.log(`${LOG.ok} No matching branches found.`);
+    process.exit(0);
   }
 
-  // delete branches
+  const current = getCurrentBranch();
+  const branchMap = loadBranchMap();
+
   for (const br of branches) {
+    if (br === current) {
+      console.warn(`${LOG.warn} Skipping current branch: "${br}"`);
+      continue;
+    }
+
     try {
       execSync(`git branch -d ${br}`, { stdio: 'inherit' });
 
-      // 삭제에 성공한 브랜치만 JSON에서도 제거
       if (branchMap[br]) {
         delete branchMap[br];
-        console.log(`🧹 Removed "${br}" from branches.json`);
+        console.log(`${LOG.info} Removed "${br}" from branches.json`);
       }
-    } catch {
-      console.error(`⚠️  Could not delete branch: ${br}`);
+    } catch (err) {
+      console.error(`${LOG.warn} Could not delete branch "${br}": ${err.message}`);
     }
   }
 
-  // write updated JSON
-  try {
-    fs.writeFileSync(BRANCH_RECORD_FILE, JSON.stringify(branchMap, null, 2));
-  } catch {
-    console.warn('⚠️  Failed to update branches.json');
-  }
+  saveBranchMap(branchMap);
 
-  console.log('✅  Done.');
+  console.log(`${LOG.ok} Done.`);
   process.exit(0);
 }
 
-// invalid mode
 usage();

@@ -1,20 +1,12 @@
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
-
-const TAG   = "[SWITCH]";
-const EMOJI = {
-  info:    "ℹ️",
-  create:  "🆕",
-  switch:  "🔄",
-  success: "✅",
-  error:   "❌"
-};
+const LOG = require("./log-tag");
 
 const BRANCH_RECORD_FILE = path.join(__dirname, "branches.json");
 
 function usage() {
-  console.error(`${EMOJI.error} ${TAG} Usage: git s <branch>  or  git s -c <new-branch>`);
+  console.error(`${LOG.error}Usage: git s <branch>  or  git s -c <new-branch>`);
   process.exit(1);
 }
 
@@ -26,12 +18,11 @@ function getCurrentBranch() {
 
 function getUpstreamBranch() {
   try {
-    const full = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}')
+    return execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}')
       .toString()
       .trim(); // e.g., origin/dev
-    return full;
   } catch {
-    return null; // no upstream
+    return null;
   }
 }
 
@@ -41,9 +32,9 @@ function hasLocalBranch(branch) {
 }
 
 function switchLocal(branch) {
-  console.log(`${EMOJI.switch} ${TAG} Switching to "${branch}"...`);
+  console.log(`${LOG.switch}Switching to "${branch}"...`);
   execSync(`git switch "${branch}"`, { stdio: "inherit" });
-  console.log(`${EMOJI.success} ${TAG} Now on branch "${branch}".`);
+  console.log(`${LOG.success}Now on branch "${branch}".`);
 }
 
 function recordParentBranch(child, parent) {
@@ -52,14 +43,18 @@ function recordParentBranch(child, parent) {
     try {
       config = JSON.parse(fs.readFileSync(BRANCH_RECORD_FILE, "utf-8"));
     } catch {
-      console.warn(`${EMOJI.error} ${TAG} Failed to parse branches.json`);
+      console.warn(`${LOG.error}Failed to parse branches.json`);
     }
   }
 
   config[child] = parent;
 
-  fs.writeFileSync(BRANCH_RECORD_FILE, JSON.stringify(config, null, 2));
-  console.log(`${EMOJI.info}  ${TAG} Recorded parent branch: "${child}" ← "${parent}"`);
+  try {
+    fs.writeFileSync(BRANCH_RECORD_FILE, JSON.stringify(config, null, 2));
+    console.log(`${LOG.info}Recorded parent branch: "${child}" ← "${parent}"`);
+  } catch (err) {
+    console.error(`${LOG.error}Failed to write branches.json: ${err.message}`);
+  }
 }
 
 try {
@@ -71,26 +66,26 @@ try {
     if (!target) usage();
 
     const current = getCurrentBranch();
-    const upstream = getUpstreamBranch(); // e.g., origin/dev
+    const upstream = getUpstreamBranch();
 
-    console.log(`${EMOJI.info}  ${TAG} Current branch is "${current}".`);
+    console.log(`${LOG.info}Current branch is "${current}".`);
 
     if (upstream) {
-      console.log(`${EMOJI.create} ${TAG} Creating branch "${target}" from upstream "${upstream}"...`);
+      console.log(`${LOG.create}Creating branch "${target}" from upstream "${upstream}"...`);
       execSync(`git switch -c "${target}" "${upstream}"`, { stdio: "inherit" });
     } else {
-      console.log(`${EMOJI.create} ${TAG} Creating branch "${target}" from local "${current}"...`);
+      console.log(`${LOG.create}Creating branch "${target}" from local "${current}"...`);
       execSync(`git switch -c "${target}" "${current}"`, { stdio: "inherit" });
     }
 
     recordParentBranch(target, current);
 
-    console.log(`${EMOJI.success} ${TAG} New branch "${target}" created and checked out.`);
+    console.log(`${LOG.success}New branch "${target}" created and checked out.`);
   } else {
     const branch = modeArg;
 
     if (!hasLocalBranch(branch)) {
-      console.error(`${EMOJI.error} ${TAG} Local branch "${branch}" not found.`);
+      console.error(`${LOG.error}Local branch "${branch}" not found.`);
       process.exit(1);
     }
 
@@ -98,6 +93,6 @@ try {
   }
 
 } catch (err) {
-  console.error(`${EMOJI.error} ${TAG} Operation failed: ${err.message}`);
+  console.error(`${LOG.error}Operation failed: ${err.message}`);
   process.exit(1);
 }

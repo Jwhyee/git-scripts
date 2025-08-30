@@ -1,55 +1,61 @@
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const LOG = require('./log-tag');
 
 const currentDirectory = process.cwd();
 
-const getDirectories = (directory) => {
-  return fs.readdirSync(directory).filter((file) => {
-    const filePath = path.join(directory, file);
-    return fs.statSync(filePath).isDirectory();
-  });
-};
+const getDirectories = (directory) =>
+  fs.readdirSync(directory).filter((file) =>
+    fs.statSync(path.join(directory, file)).isDirectory()
+  );
 
-const isGitRepository = (directory) => {
-  return fs.existsSync(path.join(directory, '.git'));
-};
+const isGitRepository = (directory) =>
+  fs.existsSync(path.join(directory, '.git'));
 
-const execCommand = (command, cwd) => {
-  return new Promise((resolve) => {
+const execCommand = (command, cwd) =>
+  new Promise((resolve) => {
     exec(command, { cwd }, (error, stdout, stderr) => {
-      // if (stdout) {
-      //   console.log(`📘 [${path.basename(cwd)}] ${stdout.trim()}`);
-      // }
-      // if (stderr) {
-      //   console.error(`⚠️ [${path.basename(cwd)}] ${stderr.trim()}`);
-      // }
+      if (error) {
+        console.warn(`${LOG.warn} [${path.basename(cwd)}] Command failed: ${command}`);
+        if (stderr) console.warn(`${LOG.warn} ${stderr.trim()}`);
+      }
       resolve();
     });
   });
-};
 
-const getCurrentBranch = async (directory) => {
-  return new Promise((resolve) => {
-    exec('git rev-parse --abbrev-ref HEAD', { cwd: directory }, (error, stdout) => {
-      resolve(stdout.trim());
+const getCurrentBranch = async (directory) =>
+  new Promise((resolve) => {
+    exec('git rev-parse --abbrev-ref HEAD', { cwd: directory }, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`${LOG.error} Failed to get current branch in ${directory}`);
+        if (stderr) console.error(`${LOG.error} ${stderr.trim()}`);
+        resolve(null);
+      } else {
+        resolve(stdout.trim());
+      }
     });
   });
-};
 
 const hardResetAndClean = async (directory) => {
   const dirName = path.basename(directory);
   const branch = await getCurrentBranch(directory);
 
+  if (!branch) {
+    console.warn(`${LOG.warn} Skipping ${dirName} due to branch resolution failure.`);
+    return;
+  }
+
+  console.log(`${LOG.info} Resetting ${dirName} (${branch})...`);
   await execCommand(`git fetch origin ${branch}`, directory);
   await execCommand(`git reset --hard origin/${branch}`, directory);
   await execCommand(`git clean -fd`, directory);
 
-  console.log(`✅  [${dirName}] ${branch} branch is now clean.`);
+  console.log(`${LOG.ok} [${dirName}] ${branch} is now clean.`);
 };
 
 (async () => {
-  console.log(`\n🗑️ Target Project: ${currentDirectory}\n`);
+  console.log(`\n${LOG.info} Target Project: ${currentDirectory}\n`);
 
   if (isGitRepository(currentDirectory)) {
     await hardResetAndClean(currentDirectory);
@@ -63,5 +69,5 @@ const hardResetAndClean = async (directory) => {
     }
   }
 
-  console.log('\n🏁 All repositories are up to date and clean!\n');
+  console.log(`\n${LOG.ok} All repositories are up to date and clean.\n`);
 })();

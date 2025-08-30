@@ -1,24 +1,22 @@
 const { execSync } = require('child_process');
+const LOG = require('./log-tag');
 
 function getCurrentBranch() {
   return execSync('git rev-parse --abbrev-ref HEAD')
-    .toString()
-    .trim();
+    .toString().trim();
 }
 
 function getRemoteName() {
   try {
-    return execSync('git remote')
-      .toString()
-      .trim()
-      .split('\n')[0] || 'origin';
+    const remotes = execSync('git remote').toString().trim().split('\n');
+    return remotes[0] || 'origin';
   } catch {
     return 'origin';
   }
 }
 
 function usage() {
-  console.error('❌ Usage: git p this [-f]');
+  console.error(`${LOG.error} Usage: git p this [-f | --force]`);
   process.exit(1);
 }
 
@@ -27,30 +25,23 @@ try {
   const mode = args[0];
   const flags = args.slice(1);
 
-  // mode 검증
   if (mode !== 'this') usage();
-
-  // flag 검증: 없거나, -f 혹은 --force 단 하나만 허용
   if (flags.length > 1) usage();
-  if (flags.length === 1 && !['-f', '--force'].includes(flags[0])) usage();
 
-  const isForce = flags.length === 1;
+  const isForce = flags.includes('-f') || flags.includes('--force');
   const branch = getCurrentBranch();
   const remote = getRemoteName();
 
-  console.log(`🔍 Verifying branch "${branch}"...`);
+  console.log(`${LOG.info} Verifying branch "${branch}"...`);
   execSync(`git rev-parse --verify ${branch}`, { stdio: 'ignore' });
 
-  console.log(
-    `🚀 Pushing "${branch}" to "${remote}"${isForce ? ' with force' : ''}...`
-  );
-  const forceFlag = isForce ? '--force' : '';
-  execSync(`git push ${remote} ${branch} ${forceFlag}`, { stdio: 'inherit' });
+  console.log(`${LOG.push} Pushing "${branch}" to "${remote}"${isForce ? ' with force' : ''}...`);
+  const forceArg = isForce ? '--force' : '';
+  execSync(`git push ${remote} ${branch} ${forceArg}`, { stdio: 'inherit' });
 
-  console.log(
-    `✅ Push ${isForce ? 'forced ' : ''}complete for branch "${branch}".`
-  );
+  console.log(`${LOG.ok} Push ${isForce ? 'forced ' : ''}complete for branch "${branch}".`);
+
 } catch (err) {
-  console.error(`❌ Push failed: ${err.message}`);
+  console.error(`${LOG.error} Push failed: ${err.message}`);
   process.exit(1);
 }
