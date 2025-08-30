@@ -1,6 +1,6 @@
 # 📁 Git 스크립트 모음
 
-Node.js 기반으로 작성된 Git 스크립트 모음입니다.  
+[Node.js](https://nodejs.org) 기반으로 작성된 Git 스크립트 모음입니다.  
 자주 사용하는 Git 작업들을 간편하게 수행할 수 있도록 브랜치 삭제, 전환, 리베이스, 푸시 등의 명령을 자동화합니다.
 
 ---
@@ -15,6 +15,11 @@ git clone https://github.com/Jwhyee/git-scripts.git
 ---
 
 ## ⚙️ Git Alias 등록
+
+```bash
+cd ~
+code .gitconfig
+```
 
 ```ini
 [alias]
