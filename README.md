@@ -23,8 +23,7 @@ code .gitconfig
 
 > - `code` 명령어를 사용할 수 없는 경우
 >    - `vim` 혹은 `notepad` 명령어 사용
->    - `code` [커맨드 활성화](https://code.visualstudio.com/docs/setup/mac?originUrl=%2Fdocs%2Fsetup%2Fwindows#_configure-the-path-with-vs-code)
->       - 맥, 윈도우 동일
+>    - `code` [커맨드 활성화](https://code.visualstudio.com/docs/setup/mac?originUrl=%2Fdocs%2Fsetup%2Fwindows#_configure-the-path-with-vs-code) - 맥(cmd), 윈도우(ctrl) 동일
 
 ```ini
 [alias]
