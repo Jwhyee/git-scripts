@@ -94,6 +94,7 @@ if (mode === '-d') {
     try {
       execSync(`git branch -d ${br}`, { stdio: 'inherit' });
 
+      // 정확히 일치하는 브랜치명 삭제
       if (branchMap[br]) {
         delete branchMap[br];
         console.log(`${LOG.info} Removed "${br}" from branches.json`);
@@ -101,6 +102,16 @@ if (mode === '-d') {
     } catch (err) {
       console.error(`${LOG.warn} Could not delete branch "${br}": ${err.message}`);
     }
+  }
+
+  // branches.json에서 키워드가 포함된 브랜치들도 삭제
+  const branchesToRemove = Object.keys(branchMap).filter(branchName => 
+    branchName.includes(keyword)
+  );
+  
+  for (const branchName of branchesToRemove) {
+    delete branchMap[branchName];
+    console.log(`${LOG.info} Removed "${branchName}" from branches.json (keyword match)`);
   }
 
   saveBranchMap(branchMap);
