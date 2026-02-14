@@ -1,73 +1,105 @@
+#!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const LOG = require('./log-tag');
 
 const currentDirectory = process.cwd();
 
-const getDirectories = (directory) =>
-  fs.readdirSync(directory).filter((file) =>
-    fs.statSync(path.join(directory, file)).isDirectory()
-  );
+// 동기식 하위 Git 디렉토리 필터링
+const getSubGitDirectories = (dir) => {
+  try {
+    return fs.readdirSync(dir)
+      .map(file => path.join(dir, file))
+      .filter(fullPath => 
+        fs.statSync(fullPath).isDirectory() && 
+        fs.existsSync(path.join(fullPath, '.git'))
+      );
+  } catch {
+    return [];
+  }
+};
 
-const isGitRepository = (directory) =>
-  fs.existsSync(path.join(directory, '.git'));
+const isGitRepository = (dir) => fs.existsSync(path.join(dir, '.git'));
 
-const execCommand = (command, cwd) =>
-  new Promise((resolve) => {
+// 동기식 브랜치명 추출
+const getCurrentBranch = (dir) => {
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD', { cwd: dir }).toString().trim();
+  } catch {
+    return null;
+  }
+};
+
+// 동기식 리모트명 추출 (기본값: origin)
+const getRemoteName = (dir) => {
+  try {
+    const remotes = execSync('git remote', { cwd: dir }).toString().trim().split('\n');
+    return remotes[0] || 'origin';
+  } catch {
+    return 'origin';
+  }
+};
+
+// 비동기 명령어 실행 및 에러 시 명시적 Reject
+const runCommand = (command, cwd) => {
+  return new Promise((resolve, reject) => {
     exec(command, { cwd }, (error, stdout, stderr) => {
       if (error) {
-        console.warn(`${LOG.warn} [${path.basename(cwd)}] Command failed: ${command}`);
-        if (stderr) console.warn(`${LOG.warn} ${stderr.trim()}`);
-      }
-      resolve();
-    });
-  });
-
-const getCurrentBranch = async (directory) =>
-  new Promise((resolve) => {
-    exec('git rev-parse --abbrev-ref HEAD', { cwd: directory }, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`${LOG.error} Failed to get current branch in ${directory}`);
-        if (stderr) console.error(`${LOG.error} ${stderr.trim()}`);
-        resolve(null);
+        reject(new Error(stderr ? stderr.trim() : stdout.trim()));
       } else {
-        resolve(stdout.trim());
+        resolve();
       }
     });
   });
+};
 
+// Hard Reset 및 Clean 수행 로직
 const hardResetAndClean = async (directory) => {
   const dirName = path.basename(directory);
-  const branch = await getCurrentBranch(directory);
+  const branch = getCurrentBranch(directory);
 
   if (!branch) {
-    console.warn(`${LOG.warn} Skipping ${dirName} due to branch resolution failure.`);
+    console.warn(`${LOG.warn} Skipping [${dirName}]: Branch resolution failed.`);
     return;
   }
 
-  console.log(`${LOG.info} Resetting ${dirName} (${branch})...`);
-  await execCommand(`git fetch origin ${branch}`, directory);
-  await execCommand(`git reset --hard origin/${branch}`, directory);
-  await execCommand(`git clean -fd`, directory);
+  const remote = getRemoteName(directory);
+  console.log(`${LOG.info} Resetting [${dirName}] (${remote}/${branch})...`);
 
-  console.log(`${LOG.ok} [${dirName}] ${branch} is now clean.`);
+  try {
+    await runCommand(`git fetch ${remote} ${branch}`, directory);
+    await runCommand(`git reset --hard ${remote}/${branch}`, directory);
+    await runCommand(`git clean -fd`, directory);
+    console.log(`${LOG.ok} [${dirName}] is now clean.`);
+  } catch (err) {
+    console.error(`${LOG.error} [${dirName}] Reset failed: ${err.message}`);
+  }
 };
 
+// ---------- Main ----------
 (async () => {
   console.log(`\n${LOG.info} Target Project: ${currentDirectory}\n`);
 
+  const targets = [];
+  
+  // 1. 현재 디렉토리가 Git 저장소인지 확인
   if (isGitRepository(currentDirectory)) {
-    await hardResetAndClean(currentDirectory);
+    targets.push(currentDirectory);
   }
 
-  const subDirs = getDirectories(currentDirectory);
-  for (const dir of subDirs) {
-    const fullPath = path.join(currentDirectory, dir);
-    if (isGitRepository(fullPath)) {
-      await hardResetAndClean(fullPath);
-    }
+  // 2. 하위 디렉토리 중 Git 저장소 탐색
+  targets.push(...getSubGitDirectories(currentDirectory));
+
+  if (targets.length === 0) {
+    console.warn(`${LOG.warn} No Git repositories found in the target project.`);
+    process.exit(0);
   }
 
-  console.log(`\n${LOG.ok} All repositories are up to date and clean.\n`);
+  // 3. 대상 저장소 순회하며 초기화
+  for (const target of targets) {
+    await hardResetAndClean(target);
+  }
+
+  console.log(`\n${LOG.ok} Cleanup process completed.\n`);
 })();

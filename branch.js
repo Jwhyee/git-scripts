@@ -1,24 +1,36 @@
+#!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const LOG = require('./log-tag'); // [INFO], [OK], [ERROR], ...
+const LOG = require('./log-tag');
 
 const BRANCH_RECORD_FILE = path.join(__dirname, 'branches.json');
 
 function usage() {
   console.error(`${LOG.error} Usage:`);
   console.error(`${LOG.error}   git b --list                Show all local branches`);
-  console.error(`${LOG.error}   git b -d <keyword>          Delete all local branches matching keyword`);
+  console.error(`${LOG.error}   git b -d <keyword>          Delete local branches and records matching keyword`);
   process.exit(1);
 }
 
 function getCurrentBranch() {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD')
-      .toString()
-      .trim();
+    return execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
   } catch {
     return null;
+  }
+}
+
+// 순수 브랜치명만 배열로 추출 (grep 대신 JavaScript 내부 필터링을 위함)
+function getAllLocalBranches() {
+  try {
+    return execSync('git branch --format="%(refname:short)"')
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    return [];
   }
 }
 
@@ -27,7 +39,7 @@ function loadBranchMap() {
   try {
     return JSON.parse(fs.readFileSync(BRANCH_RECORD_FILE, 'utf-8'));
   } catch {
-    console.warn(`${LOG.warn} Failed to parse branches.json`);
+    console.warn(`${LOG.warn} Failed to parse branches.json. Returning empty map.`);
     return {};
   }
 }
@@ -36,19 +48,16 @@ function saveBranchMap(map) {
   try {
     fs.writeFileSync(BRANCH_RECORD_FILE, JSON.stringify(map, null, 2));
   } catch {
-    console.warn(`${LOG.warn} Failed to update branches.json`);
+    console.warn(`${LOG.warn} Failed to save branches.json.`);
   }
 }
 
 // ---------- Main ----------
-
-const args = process.argv.slice(2);
-const mode = args[0];
-const keyword = args[1];
+const [mode, keyword] = process.argv.slice(2);
 
 if (!mode) usage();
 
-// --list: 리스트 출력
+// 모드 1: 리스트 출력
 if (mode === '--list') {
   try {
     execSync('git branch --list', { stdio: 'inherit' });
@@ -59,65 +68,55 @@ if (mode === '--list') {
   process.exit(0);
 }
 
-// -d <keyword>: 브랜치 삭제
+// 모드 2: 키워드 기반 브랜치 삭제
 if (mode === '-d') {
   if (!keyword) usage();
 
-  console.log(`${LOG.info} Deleting all branches matching "${keyword}"...`);
+  console.log(`${LOG.info} Deleting branches matching "${keyword}"...`);
 
-  let branches = [];
-  try {
-    branches = execSync(`git branch --list | grep ${keyword}`)
-      .toString()
-      .split('\n')
-      .map(b => b.replace(/^\*?\s*/, ''))
-      .filter(b => b.length > 0);
-  } catch {
-    console.log(`${LOG.ok} No matching branches found.`);
-    process.exit(0);
-  }
-
-  if (branches.length === 0) {
-    console.log(`${LOG.ok} No matching branches found.`);
-    process.exit(0);
-  }
-
-  const current = getCurrentBranch();
+  const allBranches = getAllLocalBranches();
+  const targetBranches = allBranches.filter(b => b.includes(keyword));
+  const currentBranch = getCurrentBranch();
   const branchMap = loadBranchMap();
 
-  for (const br of branches) {
-    if (br === current) {
-      console.warn(`${LOG.warn} Skipping current branch: "${br}"`);
-      continue;
-    }
+  let isRecordModified = false;
 
-    try {
-      execSync(`git branch -d ${br}`, { stdio: 'inherit' });
-
-      // 정확히 일치하는 브랜치명 삭제
-      if (branchMap[br]) {
-        delete branchMap[br];
-        console.log(`${LOG.info} Removed "${br}" from branches.json`);
+  // 1. 실제 로컬 Git 브랜치 삭제
+  if (targetBranches.length === 0) {
+    console.log(`${LOG.info} No local git branches matched.`);
+  } else {
+    for (const br of targetBranches) {
+      if (br === currentBranch) {
+        console.warn(`${LOG.warn} Skipping current branch: "${br}"`);
+        continue;
       }
-    } catch (err) {
-      console.error(`${LOG.warn} Could not delete branch "${br}": ${err.message}`);
+      try {
+        execSync(`git branch -d ${br}`, { stdio: 'inherit' });
+      } catch (err) {
+        // 병합되지 않은 변경사항이 있을 경우 에러 발생
+        console.error(`${LOG.error} Failed to delete branch "${br}". (Use -D to force delete)`);
+      }
     }
   }
 
-  // branches.json에서 키워드가 포함된 브랜치들도 삭제
-  const branchesToRemove = Object.keys(branchMap).filter(branchName => 
-    branchName.includes(keyword)
-  );
-  
-  for (const branchName of branchesToRemove) {
-    delete branchMap[branchName];
-    console.log(`${LOG.info} Removed "${branchName}" from branches.json (keyword match)`);
+  // 2. branches.json 내 레코드 일괄 정리
+  const keysToRemove = Object.keys(branchMap).filter(k => k.includes(keyword));
+  if (keysToRemove.length > 0) {
+    for (const k of keysToRemove) {
+      delete branchMap[k];
+      console.log(`${LOG.info} Removed "${k}" from branches.json`);
+    }
+    isRecordModified = true;
   }
 
-  saveBranchMap(branchMap);
+  // 변경사항이 있을 때만 파일 저장
+  if (isRecordModified) {
+    saveBranchMap(branchMap);
+  }
 
   console.log(`${LOG.ok} Done.`);
   process.exit(0);
 }
 
+// 지정되지 않은 모드 방어
 usage();
