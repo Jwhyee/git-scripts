@@ -61,8 +61,8 @@ async function fetchRebase(dir, branch, remote) {
 
 // Push 수행
 function push(branch, remote, isForce) {
-  console.log(`${LOG.push} Pushing "${branch}" to "${remote}"${isForce ? ' with force' : ''}...`);
-  const forceArg = isForce ? '--force' : '';
+  console.log(`${LOG.push} Pushing "${branch}" to "${remote}"${isForce ? ' with force-with-lease' : ''}...`);
+  const forceArg = isForce ? '--force-with-lease' : '';
   
   // push는 실시간 출력을 위해 stdio: 'inherit' 사용
   execSync(`git push ${remote} ${branch} ${forceArg}`, { stdio: 'inherit', cwd });

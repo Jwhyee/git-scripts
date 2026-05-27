@@ -83,7 +83,7 @@ git config --global --edit
 |  | `all` | 현재 및 하위 Git 저장소 전체를 순회하며 Rebase를 수행합니다. |
 | **`git p`** | `this` | 현재 브랜치를 원격 저장소(Origin)에 Push 합니다. |
 |  | `this -f` | 원격 저장소에 Force Push를 수행합니다. |
-| **`git rp`** | `this [-f]` | 현재 브랜치 기준으로 **Rebase 완료 후 즉시 Push**를 수행합니다. |
+| **`git rp`** | `this [-f]` | 현재 브랜치 기준으로 **Rebase 완료 후 즉시 Push**를 수행합니다. (`-f` 사용 시 `--force-with-lease`로 안전하게 강제 푸시) |
 | **`git clear`** | (없음) | 프로젝트 내 모든 Git 저장소의 변경사항을 Hard Reset 및 Clean 합니다. |
 
 ---
@@ -116,6 +116,7 @@ git config --global --edit
 작업한 내역을 최신화하고 리모트에 반영하는 가장 빈번한 과정을 단축합니다.
 
 * **안전장치**: Rebase 과정에서 충돌(Conflict)이 발생하면 즉시 프로세스를 중단하여 잘못된 코드가 Push되는 것을 방지합니다.
+* **강제 푸시**: `-f` 옵션을 주면 단순 `--force`가 아닌 `--force-with-lease`를 사용합니다. 원격에 다른 사람이 새로 올린 커밋이 있으면 푸시가 거부되므로, 동료의 작업물을 덮어쓰는 사고를 예방합니다.
 
 ---
 
