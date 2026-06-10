@@ -10,6 +10,7 @@ function usage() {
   console.error(`${LOG.error} Usage:`);
   console.error(`${LOG.error}   git b --list                Show all local branches`);
   console.error(`${LOG.error}   git b -d <keyword>          Delete local branches and records matching keyword`);
+  console.error(`${LOG.error}   git b -p <branch>           Set the parent of the current branch`);
   process.exit(1);
 }
 
@@ -115,6 +116,25 @@ if (mode === '-d') {
   }
 
   console.log(`${LOG.ok} Done.`);
+  process.exit(0);
+}
+
+// 모드 3: 현재 브랜치의 부모 브랜치 기록
+if (mode === '-p') {
+  if (!keyword) usage();
+
+  const currentBranch = getCurrentBranch();
+  if (!currentBranch || currentBranch === 'HEAD') {
+    console.error(`${LOG.error} Could not determine the current branch. Are you in a detached HEAD state?`);
+    process.exit(1);
+  }
+
+  const parentBranch = keyword;
+  const branchMap = loadBranchMap();
+  branchMap[currentBranch] = parentBranch;
+  saveBranchMap(branchMap);
+
+  console.log(`${LOG.info} Recorded parent branch: "${currentBranch}" ← "${parentBranch}"`);
   process.exit(0);
 }
 
